@@ -219,7 +219,17 @@ private actor VideoWallpaperInstaller {
             let nativeLongEdge = max(nativeSize.width, nativeSize.height)
             let nativeShortEdge = min(nativeSize.width, nativeSize.height)
             let outputLongEdge = min(nativeLongEdge, maximumOutputLongEdge)
-            let scaledShortEdge = outputLongEdge * nativeShortEdge / nativeLongEdge
+            // The PosterBoard template declares a 810x1080 (3:4) iPad logical
+    // screen class. Match it on iPad to avoid a second aspect-fit pass
+    // on non-4:3 panels, which otherwise produces black borders/cropping.
+    let targetShortToLongRatio: CGFloat
+    if UIDevice.current.userInterfaceIdiom == .pad {
+        targetShortToLongRatio = 810.0 / 1080.0
+    } else {
+        targetShortToLongRatio = nativeShortEdge / nativeLongEdge
+    }
+
+    let scaledShortEdge = outputLongEdge * targetShortToLongRatio
             let outputShortEdge = max(2, (scaledShortEdge / 2).rounded(.down) * 2)
             return CGSize(width: outputShortEdge, height: outputLongEdge)
         }
