@@ -2,8 +2,11 @@ name: Release unsigned IPA
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +17,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
     runs-on: macos-26
     timeout-minutes: 30
 
@@ -25,6 +29,12 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Read app version
+        run: |
+          VERSION=$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' placard.xcodeproj/project.pbxproj | head -n 1)
+          test -n "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build unsigned archive
         run: |
@@ -45,12 +55,19 @@ jobs:
             "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
             "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
-          zip -qry "placard-${GITHUB_REF_NAME}-unsigned.ipa" Payload
+          zip -qry "placard-v${VERSION}-unsigned.ipa" Payload
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: placard-v${{ env.VERSION }}-unsigned
+          path: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
 
       - name: Publish GitHub release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
           name: Placard ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ runner.temp }}/placard-${{ github.ref_name }}-unsigned.ipa
+          files: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
