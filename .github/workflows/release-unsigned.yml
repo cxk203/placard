@@ -64,10 +64,12 @@ jobs:
           path: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
 
       - name: Publish GitHub release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
         uses: softprops/action-gh-release@v3
         with:
-          name: Placard ${{ github.ref_name }}
+          tag_name: v${{ env.VERSION }}
+          name: Placard v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
