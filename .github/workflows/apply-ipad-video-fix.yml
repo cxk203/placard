@@ -1,0 +1,91 @@
+name: Apply iPad video wallpaper fix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  apply:
+    if: contains(github.event.head_commit.message, '[apply-ipad-fix]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Patch iPad video sizing and bump version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          video_path = Path('placard/VideoWallpaper.swift')
+          text = video_path.read_text()
+          old = '''        let outputSize = await MainActor.run {
+              let nativeSize = UIScreen.main.nativeBounds.size
+              let nativeLongEdge = max(nativeSize.width, nativeSize.height)
+              let nativeShortEdge = min(nativeSize.width, nativeSize.height)
+              let outputLongEdge = min(nativeLongEdge, maximumOutputLongEdge)
+              let scaledShortEdge = outputLongEdge * nativeShortEdge / nativeLongEdge
+              let outputShortEdge = max(2, (scaledShortEdge / 2).rounded(.down) * 2)
+              return CGSize(width: outputShortEdge, height: outputLongEdge)
+          }
+          '''
+          new = '''        let outputSize = await MainActor.run {
+              let nativeSize = UIScreen.main.nativeBounds.size
+              let nativeLongEdge = max(nativeSize.width, nativeSize.height)
+              let nativeShortEdge = min(nativeSize.width, nativeSize.height)
+              let outputLongEdge = min(nativeLongEdge, maximumOutputLongEdge)
+
+              // The PosterBoard template declares a 810x1080 (3:4) iPad logical
+              // screen class. Match it on iPad to avoid a second aspect-fit pass
+              // on non-4:3 panels, which otherwise produces black borders/cropping.
+              let targetShortToLongRatio: CGFloat
+              if UIDevice.current.userInterfaceIdiom == .pad {
+                  targetShortToLongRatio = 810.0 / 1080.0
+              } else {
+                  targetShortToLongRatio = nativeShortEdge / nativeLongEdge
+              }
+
+              let scaledShortEdge = outputLongEdge * targetShortToLongRatio
+              let outputShortEdge = max(2, (scaledShortEdge / 2).rounded(.down) * 2)
+              return CGSize(width: outputShortEdge, height: outputLongEdge)
+          }
+          '''
+          if old not in text:
+              raise SystemExit('Expected VideoWallpaper output-size block was not found')
+          video_path.write_text(text.replace(old, new, 1))
+
+          project_path = Path('placard.xcodeproj/project.pbxproj')
+          project = project_path.read_text()
+          project, count = re.subn(r'MARKETING_VERSION = [^;]+;', 'MARKETING_VERSION = 1.6.7;', project)
+          if count != 2:
+              raise SystemExit(f'Expected 2 MARKETING_VERSION entries, found {count}')
+          project_path.write_text(project)
+          PY
+
+      - name: Remove one-shot helper
+        run: |
+          rm -f .github/ipad-video-fix.trigger
+          git rm .github/workflows/apply-ipad-video-fix.yml
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add placard/VideoWallpaper.swift placard.xcodeproj/project.pbxproj .github/ipad-video-fix.trigger .github/workflows/apply-ipad-video-fix.yml
+          git commit -m "fix: correct iPad video wallpaper sizing and bump to 1.6.7"
+          git push origin HEAD:main
+
+      - name: Run unsigned build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run release-unsigned.yml --repo "$GITHUB_REPOSITORY" --ref main
