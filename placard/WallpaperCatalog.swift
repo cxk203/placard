@@ -300,14 +300,14 @@ actor RemoteAssetCache {
             in: .userDomainMask
         )[0].appending(path: "PlacardRemoteAssets", directoryHint: .isDirectory)
         let cache = URLCache(
-            memoryCapacity: 48 * 1_024 * 1_024,
-            diskCapacity: 512 * 1_024 * 1_024,
+            memoryCapacity: 128 * 1_024 * 1_024,
+            diskCapacity: 1024 * 1_024 * 1_024,
             directory: cacheDirectory
         )
         let configuration = URLSessionConfiguration.default
         configuration.urlCache = cache
         configuration.requestCachePolicy = .returnCacheDataElseLoad
-        configuration.httpMaximumConnectionsPerHost = 4
+        configuration.httpMaximumConnectionsPerHost = 12
         self.cache = cache
         self.session = URLSession(configuration: configuration)
     }
@@ -353,7 +353,7 @@ actor RemoteAssetCache {
     }
 
     private func acquireDownloadSlot() async {
-        guard activeDownloads >= 3 else {
+        guard activeDownloads >= 10 else {
             activeDownloads += 1
             return
         }

@@ -306,7 +306,7 @@ nonisolated private final class ImageCache: @unchecked Sendable {
     private let values = NSCache<NSString, UIImage>()
 
     init() {
-        values.countLimit = 60
+        values.countLimit = 300
     }
 
     func image(for key: NSString) -> UIImage? {
