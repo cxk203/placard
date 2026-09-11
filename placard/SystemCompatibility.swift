@@ -3,6 +3,21 @@ import Foundation
 /// Supported range: iOS/iPadOS 26.0 through 26.6.1, plus 27.0 developer betas 1-4.
 /// Every 27.0 beta reports systemVersion "27.0", so betas are told apart by build number.
 enum SystemCompatibility {
+    // Launch exception only: installation on this version is not yet verified.
+    static func isExperimental(_ version: OperatingSystemVersion) -> Bool {
+        version.majorVersion == 26 && version.minorVersion == 6 && version.patchVersion == 2
+    }
+
+    static var isExperimentalBuild: Bool {
+        isExperimental(ProcessInfo.processInfo.operatingSystemVersion)
+    }
+
+    static var diagnosticDescription: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let build = currentBuildNumber() ?? "unknown"
+        return "OS \(version.majorVersion).\(version.minorVersion).\(version.patchVersion) (\(build)); Placard 26.6.2 test"
+    }
+
     /// iOS/iPadOS 27.0 beta 1-4 build numbers (iPadOS beta 3 shipped a revised "v2" build).
     private static let supportedBuilds27: Set<String> = [
         "24A5355q", // 27.0 beta 1

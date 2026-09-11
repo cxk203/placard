@@ -23,7 +23,13 @@ enum WallpaperLocationNotice {
 @MainActor
 @Observable
 final class InstallCoordinator {
-    private(set) var state: InstallState = .idle
+    private(set) var state: InstallState = .idle {
+        didSet {
+            if state.diagnosticStage != oldValue.diagnosticStage {
+                installerLogger.info("Install stage: \(self.state.diagnosticStage, privacy: .public)")
+            }
+        }
+    }
     private let installer = WallpaperInstaller()
     private var task: Task<Void, Never>?
 
@@ -41,7 +47,7 @@ final class InstallCoordinator {
                 state = .idle
             } catch {
                 reportInstallFailure(error)
-                state = .failure(error.localizedDescription)
+                state = .failure(failureMessage(error))
             }
         }
     }
@@ -71,7 +77,7 @@ final class InstallCoordinator {
                 state = .idle
             } catch {
                 reportInstallFailure(error)
-                state = .failure(error.localizedDescription)
+                state = .failure(failureMessage(error))
             }
         }
     }
@@ -105,7 +111,13 @@ final class InstallCoordinator {
         }
     }
 
+    private func failureMessage(_ error: Error) -> String {
+        guard SystemCompatibility.isExperimentalBuild else { return error.localizedDescription }
+        return "\(error.localizedDescription)\n\n阶段 / Stage: \(state.diagnosticStage)\n\(SystemCompatibility.diagnosticDescription)"
+    }
+
     private func reportInstallFailure(_ error: Error) {
+        installerLogger.error("\(SystemCompatibility.diagnosticDescription, privacy: .public); stage=\(self.state.diagnosticStage, privacy: .public)")
         let nsError = error as NSError
         let diagnostic = "Installation failed: \(String(reflecting: error)); domain=\(nsError.domain); code=\(nsError.code); userInfo=\(nsError.userInfo)"
         installerLogger.error(
@@ -125,6 +137,21 @@ enum InstallState: Equatable, Sendable {
     case preparingRespring
     case respringing
     case failure(String)
+
+    var diagnosticStage: String {
+        switch self {
+        case .idle: "idle"
+        case .downloading: "downloading"
+        case .importing: "importing"
+        case .unpacking: "unpacking"
+        case .locatingPosterBoard: "locatingPosterBoard"
+        case .writing: "writing"
+        case .installed: "filesWritten"
+        case .preparingRespring: "preparingRespring"
+        case .respringing: "respringing"
+        case .failure: "failure"
+        }
+    }
 
     var isWorking: Bool {
         switch self {
