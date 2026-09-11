@@ -1,0 +1,77 @@
+name: Build iOS 26.6.2 test IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Test experimental version policy
+        run: |
+          cat > "$RUNNER_TEMP/CompatibilityTests.swift" <<'SWIFT'
+          import Foundation
+          @main
+          struct CompatibilityTests {
+              static func main() {
+                  let cases: [(Int, Int, Int, Bool)] = [
+                      (26, 6, 1, false), (26, 6, 2, true), (26, 6, 3, false),
+                      (26, 7, 0, false), (27, 0, 0, false), (25, 6, 2, false),
+                      (26, 0, 2, false)
+                  ]
+                  for (major, minor, patch, expected) in cases {
+                      let version = OperatingSystemVersion(majorVersion: major, minorVersion: minor, patchVersion: patch)
+                      precondition(SystemCompatibility.isExperimental(version) == expected)
+                  }
+                  print("PASS: 7 experimental version policy cases")
+              }
+          }
+          SWIFT
+          xcrun swiftc placard/SystemCompatibility.swift "$RUNNER_TEMP/CompatibilityTests.swift" -o "$RUNNER_TEMP/compatibility-tests"
+          "$RUNNER_TEMP/compatibility-tests"
+      - name: Build unsigned archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project placard.xcodeproj \
+            -scheme placard \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/placard.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee "$RUNNER_TEMP/build.log"
+      - name: Package unsigned test IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" "$RUNNER_TEMP/Payload/"
+          test -f "$RUNNER_TEMP/Payload/placard.app/Info.plist"
+          cd "$RUNNER_TEMP"
+          zip -qry placard-ios26.6.2-test-unsigned.ipa Payload
+          unzip -t placard-ios26.6.2-test-unsigned.ipa
+          shasum -a 256 placard-ios26.6.2-test-unsigned.ipa > placard-ios26.6.2-test-unsigned.sha256
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: placard-ios26.6.2-test-unsigned
+          path: |
+            ${{ runner.temp }}/placard-ios26.6.2-test-unsigned.ipa
+            ${{ runner.temp }}/placard-ios26.6.2-test-unsigned.sha256
+          if-no-files-found: error
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios2662-build-log
+          path: ${{ runner.temp }}/build.log
+          if-no-files-found: ignore
