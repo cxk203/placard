@@ -32,15 +32,6 @@ struct PlacardApp: App {
         WindowGroup {
             if SystemCompatibility.isSupported || SystemCompatibility.isExperimentalBuild {
                 PlacardRootView()
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        if SystemCompatibility.isExperimentalBuild {
-                            Text("26.6.2 测试版 / Test build · 壁纸安装待验证")
-                                .font(.caption)
-                                .frame(maxWidth: .infinity)
-                                .padding(8)
-                                .background(.regularMaterial)
-                        }
-                    }
             } else {
                 UnsupportedSystemView()
             }

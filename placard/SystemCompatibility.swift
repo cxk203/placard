@@ -30,7 +30,7 @@ enum SystemCompatibility {
     static var isSupported: Bool {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         if version.majorVersion == 26 {
-            return isAtMost(version, major: 26, minor: 6, patch: 1)
+            return isAtMost(version, major: 26, minor: 6, patch: 2)
         }
         if version.majorVersion == 27, version.minorVersion == 0, version.patchVersion == 0 {
             guard let build = currentBuildNumber() else { return false }
@@ -40,7 +40,7 @@ enum SystemCompatibility {
     }
 
     static var supportedRangeDescription: String {
-        String(localized: "iOS/iPadOS 26.0–26.6.1, or 27.0 developer beta 1–4")
+        String(localized: "iOS/iPadOS 26.0–26.6.2, or 27.0 developer beta 1–4")
     }
 
     private static func isAtMost(
