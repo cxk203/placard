@@ -157,6 +157,17 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     )
 }
 
+extension Array where Element == Wallpaper {
+    func deduplicated(excluding: Set<String> = []) -> [Wallpaper] {
+        var seen = excluding
+        return filter { wallpaper in
+            let key = wallpaper.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !key.isEmpty else { return true }
+            return seen.insert(key).inserted
+        }
+    }
+}
+
 struct WallpaperCatalog: Sendable {
     nonisolated static let nuggetAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
     nonisolated static let nuggetPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
@@ -164,6 +175,9 @@ struct WallpaperCatalog: Sendable {
     nonisolated static let caPlaygroundPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
     nonisolated static let lsNguyenAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/nguyenls3005-cell/LSNguyen-repo/main/")!
     nonisolated static let lsNguyenPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/nguyenls3005-cell/LSNguyen-repo/main/")!
+    nonisolated static let spygRepoURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SpyGdev/3105-repo/refs/heads/main/repositories/purple/repo.json")!
+    nonisolated static let denrindzRepoURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/tnt300709-debug/-my-3105-repo/main/repo.json")!
+    nonisolated static let denrindzBaseString = "https://ghfast.top/https://raw.githubusercontent.com/tnt300709-debug/-my-3105-repo/main/"
 
     var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
@@ -175,13 +189,58 @@ struct WallpaperCatalog: Sendable {
                 for: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"),
                 refresh: refresh
             )
-            return try JSONDecoder().decode([Wallpaper].self, from: data)
+            let wallpapers = try JSONDecoder().decode([Wallpaper].self, from: data)
+            return wallpapers.deduplicated()
+
         case .apple:
+            // 1. Base official Apple wallpapers (31 wallpapers)
             let data = try await RemoteAssetCache.shared.data(
                 for: nuggetAssetBaseURL.appending(path: "wallpapers-apple.json"),
                 refresh: refresh
             )
-            return try JSONDecoder().decode([Wallpaper].self, from: data)
+            var appleWallpapers = try JSONDecoder().decode([Wallpaper].self, from: data)
+
+            // 2. Extra iOS 26/27, iPhone 16/17, and Apple wallpapers from CAPlayground
+            if let capData = try? await RemoteAssetCache.shared.data(
+                for: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"),
+                refresh: refresh
+            ), let capResponse = try? JSONDecoder().decode(CAPlaygroundCatalogResponse.self, from: capData) {
+                let extraFromCap = capResponse.wallpapers
+                    .map(\.wallpaper)
+                    .filter { w in
+                        let lower = w.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        return (lower.contains("iphone") || lower.contains("ipad") || lower.contains("apple") || lower.contains("watch26"))
+                            && !lower.contains("bad apple")
+                    }
+                appleWallpapers.append(contentsOf: extraFromCap)
+            }
+
+            // 3. Extra system wallpapers from Nugget Custom
+            if let nuggetData = try? await RemoteAssetCache.shared.data(
+                for: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"),
+                refresh: refresh
+            ), let nuggetWallpapers = try? JSONDecoder().decode([Wallpaper].self, from: nuggetData) {
+                let extraFromNugget = nuggetWallpapers.filter { w in
+                    let lower = w.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    return lower.contains("ios_internal") || lower.contains("ios 6") || lower.contains("sea glass") || lower == "apple logo"
+                }
+                appleWallpapers.append(contentsOf: extraFromNugget)
+            }
+
+            // 4. Extra Apple wallpapers from community repos
+            if let lsData = try? await RemoteAssetCache.shared.data(
+                for: lsNguyenAssetBaseURL.appending(path: "repo.json"),
+                refresh: refresh
+            ), let lsResponse = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: lsData) {
+                let extraFromLS = lsResponse.packages.compactMap { $0.wallpaper() }.filter { w in
+                    let lower = w.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    return lower.contains("apple") && !lower.contains("bad apple")
+                }
+                appleWallpapers.append(contentsOf: extraFromLS)
+            }
+
+            return appleWallpapers.deduplicated()
+
         case .caPlayground:
             let data = try await RemoteAssetCache.shared.data(
                 for: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"),
@@ -191,13 +250,45 @@ struct WallpaperCatalog: Sendable {
             return response.wallpapers
                 .sorted { $0.date < $1.date }
                 .map(\.wallpaper)
+                .deduplicated()
+
         case .lsNguyen:
-            let data = try await RemoteAssetCache.shared.data(
-                for: lsNguyenAssetBaseURL.appending(path: "repo.json"),
-                refresh: refresh
-            )
-            let response = try JSONDecoder().decode(LSNguyenRepoResponse.self, from: data)
-            return response.packages.compactMap(\.wallpaper)
+            // Dynamic set of names already present in Apple, Nugget, and CAP to exclude duplicates!
+            var excludeNames: Set<String> = []
+            if let capData = try? await RemoteAssetCache.shared.data(for: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"), refresh: false),
+               let capResp = try? JSONDecoder().decode(CAPlaygroundCatalogResponse.self, from: capData) {
+                excludeNames.formUnion(capResp.wallpapers.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+            }
+            if let nuggetData = try? await RemoteAssetCache.shared.data(for: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"), refresh: false),
+               let nuggetResp = try? JSONDecoder().decode([Wallpaper].self, from: nuggetData) {
+                excludeNames.formUnion(nuggetResp.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+            }
+            if let appleData = try? await RemoteAssetCache.shared.data(for: nuggetAssetBaseURL.appending(path: "wallpapers-apple.json"), refresh: false),
+               let appleResp = try? JSONDecoder().decode([Wallpaper].self, from: appleData) {
+                excludeNames.formUnion(appleResp.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+            }
+
+            var communityWallpapers: [Wallpaper] = []
+
+            // 1. LSNguyen repo
+            if let data = try? await RemoteAssetCache.shared.data(for: lsNguyenAssetBaseURL.appending(path: "repo.json"), refresh: refresh),
+               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
+                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper() })
+            }
+
+            // 2. SpyG repo (Foreign creator exclusive wallpapers)
+            if let data = try? await RemoteAssetCache.shared.data(for: spygRepoURL, refresh: refresh),
+               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
+                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper() })
+            }
+
+            // 3. Denrindz repo (Community popular wallpapers)
+            if let data = try? await RemoteAssetCache.shared.data(for: denrindzRepoURL, refresh: refresh),
+               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
+                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper(baseURL: denrindzBaseString) })
+            }
+
+            return communityWallpapers.deduplicated(excluding: excludeNames)
         }
     }
 
@@ -234,15 +325,37 @@ private struct LSNguyenPackage: Decodable {
     let icon: String?
     let download: String?
 
-    nonisolated var wallpaper: Wallpaper? {
+    func wallpaper(baseURL: String? = nil) -> Wallpaper? {
         guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
               let download else { return nil }
+        let finalDownload: String
+        if download.hasPrefix("http://") || download.hasPrefix("https://") {
+            finalDownload = download
+        } else if let baseURL {
+            finalDownload = baseURL + download
+        } else {
+            finalDownload = download
+        }
+
+        let finalIcon: String
+        if let icon, !icon.isEmpty {
+            if icon.hasPrefix("http://") || icon.hasPrefix("https://") {
+                finalIcon = icon
+            } else if let baseURL {
+                finalIcon = baseURL + icon
+            } else {
+                finalIcon = icon
+            }
+        } else {
+            finalIcon = ""
+        }
+
         return Wallpaper(
             remoteID: nil,
             name: name,
             description: description ?? summary,
-            url: download,
-            preview: icon ?? "",
+            url: finalDownload,
+            preview: finalIcon,
             authors: author,
             contest: nil,
             source: .lsNguyen
