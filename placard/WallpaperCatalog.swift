@@ -4,6 +4,7 @@ enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
     case caPlayground
     case nugget
     case apple
+    case lsNguyen
 
     var id: Self { self }
 
@@ -12,6 +13,7 @@ enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
         case .caPlayground: "CAP"
         case .nugget: "Nugget"
         case .apple: "Apple"
+        case .lsNguyen: "Plus"
         }
     }
 }
@@ -19,11 +21,13 @@ enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
 enum WallpaperSource: String, Codable, Sendable {
     case nugget
     case caPlayground
+    case lsNguyen
 
     nonisolated var assetBaseURL: URL {
         switch self {
         case .nugget: WallpaperCatalog.nuggetAssetBaseURL
         case .caPlayground: WallpaperCatalog.caPlaygroundAssetBaseURL
+        case .lsNguyen: WallpaperCatalog.lsNguyenAssetBaseURL
         }
     }
 
@@ -31,6 +35,7 @@ enum WallpaperSource: String, Codable, Sendable {
         switch self {
         case .nugget: WallpaperCatalog.nuggetPackageBaseURL
         case .caPlayground: WallpaperCatalog.caPlaygroundPackageBaseURL
+        case .lsNguyen: WallpaperCatalog.lsNguyenPackageBaseURL
         }
     }
 }
@@ -79,8 +84,18 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let source: WallpaperSource
 
     var id: String { "\(source.rawValue):\(url)" }
-    nonisolated var downloadURL: URL { source.packageBaseURL.appending(path: url) }
-    nonisolated var previewURL: URL { source.assetBaseURL.appending(path: preview) }
+    nonisolated var downloadURL: URL {
+        if url.hasPrefix("http://") || url.hasPrefix("https://"), let u = URL(string: url) {
+            return u
+        }
+        return source.packageBaseURL.appending(path: url)
+    }
+    nonisolated var previewURL: URL {
+        if preview.hasPrefix("http://") || preview.hasPrefix("https://"), let u = URL(string: preview) {
+            return u
+        }
+        return source.assetBaseURL.appending(path: preview)
+    }
 
     enum CodingKeys: String, CodingKey {
         case remoteID = "id"
@@ -143,10 +158,12 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 }
 
 struct WallpaperCatalog: Sendable {
-    nonisolated static let nuggetAssetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/SerStars/nugget-wallpapers@main/")!
-    nonisolated static let nuggetPackageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
-    nonisolated static let caPlaygroundAssetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/CAPlayground/wallpapers@main/")!
-    nonisolated static let caPlaygroundPackageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
+    nonisolated static let nuggetAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let nuggetPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let caPlaygroundAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
+    nonisolated static let caPlaygroundPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
+    nonisolated static let lsNguyenAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/nguyenls3005-cell/LSNguyen-repo/main/")!
+    nonisolated static let lsNguyenPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/nguyenls3005-cell/LSNguyen-repo/main/")!
 
     var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
@@ -174,6 +191,13 @@ struct WallpaperCatalog: Sendable {
             return response.wallpapers
                 .sorted { $0.date < $1.date }
                 .map(\.wallpaper)
+        case .lsNguyen:
+            let data = try await RemoteAssetCache.shared.data(
+                for: lsNguyenAssetBaseURL.appending(path: "repo.json"),
+                refresh: refresh
+            )
+            let response = try JSONDecoder().decode(LSNguyenRepoResponse.self, from: data)
+            return response.packages.compactMap(\.wallpaper)
         }
     }
 
@@ -193,6 +217,36 @@ struct WallpaperCatalog: Sendable {
 
     static let failingPreview = WallpaperCatalog { _, _ in
         throw CatalogError.invalidResponse
+    }
+}
+
+private struct LSNguyenRepoResponse: Decodable {
+    let packages: [LSNguyenPackage]
+}
+
+private struct LSNguyenPackage: Decodable {
+    let identifier: String?
+    let kind: String?
+    let name: String
+    let author: String?
+    let summary: String?
+    let description: String?
+    let icon: String?
+    let download: String?
+
+    nonisolated var wallpaper: Wallpaper? {
+        guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
+              let download else { return nil }
+        return Wallpaper(
+            remoteID: nil,
+            name: name,
+            description: description ?? summary,
+            url: download,
+            preview: icon ?? "",
+            authors: author,
+            contest: nil,
+            source: .lsNguyen
+        )
     }
 }
 
