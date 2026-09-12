@@ -208,7 +208,7 @@ private actor WallpaperInstaller {
         #else
         guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
         guard wallpaper.downloadURL.scheme == "https",
-              wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
+              ["tendies", "tendiex", "zip"].contains(wallpaper.downloadURL.pathExtension.lowercased()) else {
             throw InstallError.invalidDownloadURL
         }
 
@@ -260,7 +260,8 @@ private actor WallpaperInstaller {
         throw InstallError.deviceRequired
         #else
         guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
-        guard sourceURL.pathExtension.lowercased() == "tendies" else {
+        let ext = sourceURL.pathExtension.lowercased()
+        guard ext == "tendies" || ext == "tendiex" || ext == "zip" else {
             throw InstallError.unsupportedPackageType
         }
 

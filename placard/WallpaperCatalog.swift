@@ -326,7 +326,7 @@ private struct LSNguyenPackage: Decodable {
     let download: String?
 
     func wallpaper(baseURL: String? = nil) -> Wallpaper? {
-        guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
+        guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true) || (download?.hasSuffix(".tendiex") == true),
               let download else { return nil }
         let finalDownload: String
         if download.hasPrefix("http://") || download.hasPrefix("https://") {
