@@ -77,9 +77,9 @@ private enum AppTab: Hashable {
 }
 
 struct WallpaperBrowserView: View {
-    private static let importablePackageTypes: [UTType] = (["tendies", "tendiex", "zip"].compactMap {
+    private static let importablePackageTypes = ["tendies"].compactMap {
         UTType(filenameExtension: $0, conformingTo: .data)
-    } + [UTType(filenameExtension: "tendies"), UTType(filenameExtension: "tendiex"), .data, .item, .zip]).compactMap { $0 }
+    }
 
     private let catalog: WallpaperCatalog
 
