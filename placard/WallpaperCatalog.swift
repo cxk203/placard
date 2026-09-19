@@ -5,6 +5,7 @@ nonisolated enum WallpaperCollection: String, CaseIterable, Identifiable, Sendab
     case nugget
     case apple
     case lsNguyen
+    case squair
 
     var id: Self { self }
 
@@ -14,6 +15,7 @@ nonisolated enum WallpaperCollection: String, CaseIterable, Identifiable, Sendab
         case .nugget: "Nugget"
         case .apple: "Apple"
         case .lsNguyen: "Plus"
+        case .squair: "Squair"
         }
     }
 }
@@ -22,12 +24,14 @@ nonisolated enum WallpaperSource: String, Codable, Sendable {
     case nugget
     case caPlayground
     case lsNguyen
+    case squair
 
     nonisolated var assetBaseURL: URL {
         switch self {
         case .nugget: WallpaperCatalog.nuggetAssetBaseURL
         case .caPlayground: WallpaperCatalog.caPlaygroundAssetBaseURL
         case .lsNguyen: WallpaperCatalog.lsNguyenAssetBaseURL
+        case .squair: WallpaperCatalog.squairRepoURL
         }
     }
 
@@ -36,6 +40,7 @@ nonisolated enum WallpaperSource: String, Codable, Sendable {
         case .nugget: WallpaperCatalog.nuggetPackageBaseURL
         case .caPlayground: WallpaperCatalog.caPlaygroundPackageBaseURL
         case .lsNguyen: WallpaperCatalog.lsNguyenPackageBaseURL
+        case .squair: WallpaperCatalog.squairRepoURL
         }
     }
 }
@@ -242,14 +247,6 @@ nonisolated struct WallpaperCatalog: Sendable {
             var communityWallpapers: [Wallpaper] = []
 
             communityWallpapers += await optionalSource(
-                name: "Squair",
-                collection: collection,
-                url: squairRepoURL,
-                refresh: refresh
-            ) { (resp: SquairCatalogResponse) in
-                resp.wallpapers.map { $0.wallpaper() }
-            }
-            communityWallpapers += await optionalSource(
                 name: "LSNguyen",
                 collection: collection,
                 url: lsNguyenAssetBaseURL.appending(path: "repo.json"),
@@ -275,6 +272,15 @@ nonisolated struct WallpaperCatalog: Sendable {
             }
 
             return communityWallpapers.deduplicated(excluding: excludeNames)
+
+        case .squair:
+            let response: SquairCatalogResponse = try await loadSource(
+                name: "Squair",
+                collection: collection,
+                url: squairRepoURL,
+                refresh: refresh
+            )
+            return response.wallpapers.map { $0.wallpaper() }
         }
     }
 
@@ -454,7 +460,7 @@ nonisolated private struct SquairWallpaper: Decodable, Sendable {
             preview: finalPreview,
             authors: "@squairdev",
             contest: nil,
-            source: .lsNguyen
+            source: .squair
         )
     }
 }
