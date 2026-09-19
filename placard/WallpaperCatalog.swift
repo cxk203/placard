@@ -1,6 +1,6 @@
 import Foundation
 
-enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
     case caPlayground
     case nugget
     case apple
@@ -18,7 +18,7 @@ enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum WallpaperSource: String, Codable, Sendable {
+nonisolated enum WallpaperSource: String, Codable, Sendable {
     case nugget
     case caPlayground
     case lsNguyen
@@ -40,7 +40,7 @@ enum WallpaperSource: String, Codable, Sendable {
     }
 }
 
-enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
     case random
     case newest
     case oldest
@@ -73,7 +73,7 @@ enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
+nonisolated struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let remoteID: Int?
     let name: String
     let description: String?
@@ -324,11 +324,11 @@ struct WallpaperCatalog: Sendable {
     }
 }
 
-private struct LSNguyenRepoResponse: Decodable, Sendable {
+nonisolated private struct LSNguyenRepoResponse: Decodable, Sendable {
     let packages: [LSNguyenPackage]
 }
 
-private struct LSNguyenPackage: Decodable, Sendable {
+nonisolated private struct LSNguyenPackage: Decodable, Sendable {
     let identifier: String?
     let kind: String?
     let name: String
@@ -378,11 +378,11 @@ private struct LSNguyenPackage: Decodable, Sendable {
     }
 }
 
-private struct CAPlaygroundCatalogResponse: Decodable, Sendable {
+nonisolated private struct CAPlaygroundCatalogResponse: Decodable, Sendable {
     let wallpapers: [CAPlaygroundWallpaper]
 }
 
-private struct CAPlaygroundWallpaper: Decodable, Sendable {
+nonisolated private struct CAPlaygroundWallpaper: Decodable, Sendable {
     let name: String
     let creator: String?
     let description: String?
@@ -404,7 +404,7 @@ private struct CAPlaygroundWallpaper: Decodable, Sendable {
     }
 }
 
-enum CatalogFetchPolicy: Sendable {
+nonisolated enum CatalogFetchPolicy: Sendable {
     case cached
     case refresh
 }
