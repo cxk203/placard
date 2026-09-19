@@ -26,7 +26,7 @@ enum WallpaperPackageError: LocalizedError, Equatable {
 }
 
 enum WallpaperPackageChecksum {
-    static func verify(fileURL: URL, expected: String?) throws {
+    nonisolated static func verify(fileURL: URL, expected: String?) throws {
         guard let normalized = normalized(expected) else { return }
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }
@@ -39,7 +39,7 @@ enum WallpaperPackageChecksum {
         guard actual == normalized else { throw WallpaperPackageError.checksumMismatch }
     }
 
-    static func normalized(_ value: String?) -> String? {
+    nonisolated static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard normalized.count == 64,
@@ -51,7 +51,7 @@ enum WallpaperPackageChecksum {
 enum ZIPArchiveInspector {
     private static let centralDirectorySignature: [UInt8] = [0x50, 0x4b, 0x01, 0x02]
 
-    static func isPasswordProtected(at url: URL) -> Bool {
+    nonisolated static func isPasswordProtected(at url: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
 
@@ -71,7 +71,7 @@ enum ZIPArchiveInspector {
 }
 
 enum WallpaperPackageValidator {
-    static func extract(_ packageURL: URL, into workspace: URL, fileManager: FileManager = .default) throws -> URL {
+    nonisolated static func extract(_ packageURL: URL, into workspace: URL, fileManager: FileManager = .default) throws -> URL {
         guard !ZIPArchiveInspector.isPasswordProtected(at: packageURL) else {
             throw WallpaperPackageError.passwordProtected
         }
@@ -86,7 +86,7 @@ enum WallpaperPackageValidator {
         return destination
     }
 
-    static func descriptorGroups(in root: URL, fileManager: FileManager = .default) throws -> [String: [URL]] {
+    nonisolated static func descriptorGroups(in root: URL, fileManager: FileManager = .default) throws -> [String: [URL]] {
         let resourceKeys: [URLResourceKey] = [.isDirectoryKey, .isHiddenKey]
         guard let enumerator = fileManager.enumerator(
             at: root,
@@ -137,7 +137,7 @@ enum WallpaperPackageValidator {
         return groups
     }
 
-    private static func validate(descriptor: URL, extensionID: String, fileManager: FileManager) throws {
+    nonisolated private static func validate(descriptor: URL, extensionID: String, fileManager: FileManager) throws {
         let role = descriptor.appending(path: "com.apple.posterkit.role.identifier")
         let identifier = descriptor.appending(path: "com.apple.posterkit.provider.descriptor.identifier")
         let contents = descriptor.appending(path: "versions/1/contents", directoryHint: .isDirectory)
@@ -159,7 +159,7 @@ enum WallpaperPackageValidator {
         for plist in plists { try validateWallpaperPlist(plist, fileManager: fileManager) }
     }
 
-    private static func wallpaperPlists(in contents: URL, fileManager: FileManager) throws -> [URL] {
+    nonisolated private static func wallpaperPlists(in contents: URL, fileManager: FileManager) throws -> [URL] {
         guard let enumerator = fileManager.enumerator(
             at: contents,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -168,7 +168,7 @@ enum WallpaperPackageValidator {
         return enumerator.compactMap { $0 as? URL }.filter { $0.lastPathComponent == "Wallpaper.plist" }
     }
 
-    private static func validateWallpaperPlist(_ url: URL, fileManager: FileManager) throws {
+    nonisolated private static func validateWallpaperPlist(_ url: URL, fileManager: FileManager) throws {
         let data = try Data(contentsOf: url)
         var format = PropertyListSerialization.PropertyListFormat.binary
         let parsed = try? PropertyListSerialization.propertyList(
@@ -192,7 +192,7 @@ enum WallpaperPackageValidator {
         }
     }
 
-    private static func animationReferences(in value: Any) -> Set<String> {
+    nonisolated private static func animationReferences(in value: Any) -> Set<String> {
         if let dictionary = value as? [String: Any] {
             return dictionary.reduce(into: Set<String>()) { result, item in
                 if item.key.localizedCaseInsensitiveContains("AnimationFileName"),

@@ -267,8 +267,8 @@ enum AnimatedImageLoader {
 
         var frames: [UIImage] = []
         var duration = 0.0
-        let stride = max(1, Int(ceil(Double(count) / Double(maximumAnimatedFrames))))
-        for index in stride(from: 0, to: count, by: stride) {
+        let frameStride = max(1, Int(ceil(Double(count) / Double(maximumAnimatedFrames))))
+        for index in stride(from: 0, to: count, by: frameStride) {
             guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
                 source,
                 index,
