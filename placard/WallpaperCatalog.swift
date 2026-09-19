@@ -362,7 +362,9 @@ nonisolated private struct LSNguyenPackage: Decodable, Sendable {
     let sha256: String?
 
     nonisolated func wallpaper(baseURL: String? = nil) -> Wallpaper? {
-        guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
+        guard kind == "wallpaper"
+                || (download?.hasSuffix(".tendies") == true)
+                || (download?.hasSuffix(".tendiex") == true),
               let download else { return nil }
         let finalDownload: String
         if download.hasPrefix("http://") || download.hasPrefix("https://") {

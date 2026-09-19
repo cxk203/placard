@@ -207,8 +207,9 @@ private actor WallpaperInstaller {
         throw InstallError.deviceRequired
         #else
         guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        let ext = wallpaper.downloadURL.pathExtension.lowercased()
         guard wallpaper.downloadURL.scheme == "https",
-              wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
+              ext == "tendies" || ext == "tendiex" else {
             throw InstallError.invalidDownloadURL
         }
 
@@ -264,7 +265,8 @@ private actor WallpaperInstaller {
         throw InstallError.deviceRequired
         #else
         guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
-        guard sourceURL.pathExtension.lowercased() == "tendies" else {
+        let ext = sourceURL.pathExtension.lowercased()
+        guard ext == "tendies" || ext == "tendiex" || ext == "zip" else {
             throw InstallError.unsupportedPackageType
         }
 
@@ -311,15 +313,24 @@ private actor WallpaperInstaller {
     }
 
     private func copyImportedPackage(_ sourceURL: URL, into workspace: URL) throws -> URL {
-        let values = try sourceURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard values.isRegularFile == true,
-              let fileSize = values.fileSize,
-              fileSize > 0,
-              Int64(fileSize) <= maximumPackageBytes else {
+        let fileSize: Int64
+        if let values = try? sourceURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+           values.isRegularFile == true,
+           let size = values.fileSize {
+            fileSize = Int64(size)
+        } else if let attrs = try? fileManager.attributesOfItem(atPath: sourceURL.path),
+                  let size = attrs[.size] as? NSNumber {
+            fileSize = size.int64Value
+        } else {
+            fileSize = 0
+        }
+
+        guard fileSize > 0, fileSize <= maximumPackageBytes else {
             throw InstallError.packageTooLarge
         }
 
-        let destination = workspace.appending(path: "wallpaper.\(sourceURL.pathExtension.lowercased())")
+        let ext = sourceURL.pathExtension.lowercased()
+        let destination = workspace.appending(path: "wallpaper.\(ext.isEmpty ? "tendies" : ext)")
         try fileManager.copyItem(at: sourceURL, to: destination)
         return destination
     }
@@ -333,7 +344,9 @@ private actor WallpaperInstaller {
         var request = URLRequest(url: remoteURL)
         request.timeoutInterval = 90
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        let destination = workspace.appending(path: "wallpaper.tendies")
+        let ext = remoteURL.pathExtension.lowercased()
+        let packageExt = (ext == "tendiex") ? "tendiex" : "tendies"
+        let destination = workspace.appending(path: "wallpaper.\(packageExt)")
         let response: URLResponse
         do {
             response = try await PackageDownloader(
@@ -528,7 +541,7 @@ enum InstallError: LocalizedError {
         case .deviceRequired: String(localized: "Please install wallpapers on a physical device.")
         case .unsupportedSystem: String(localized: "This system version is not supported.")
         case .invalidDownloadURL: String(localized: "The download URL is invalid.")
-        case .unsupportedPackageType: String(localized: "Choose a .tendies wallpaper package.")
+        case .unsupportedPackageType: String(localized: "Choose a .tendies or .tendiex wallpaper package.")
         case .packageTooLarge: String(localized: "The wallpaper package is empty or too large.")
         case .invalidPackage: String(localized: "The wallpaper package is invalid or damaged.")
         case .noDescriptors: String(localized: "The wallpaper package contains no installable content.")

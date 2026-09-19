@@ -5,14 +5,14 @@ import UIKit
 
 private enum TendiesDocumentPicker {
     static let useCopyMode: Void = {
-        let originalMethod = class_getInstanceMethod(
+        guard let originalMethod = class_getInstanceMethod(
             UIDocumentPickerViewController.self,
             #selector(UIDocumentPickerViewController.init(forOpeningContentTypes:asCopy:))
-        )!
+        ),
         let copyMethod = class_getInstanceMethod(
             UIDocumentPickerViewController.self,
             #selector(UIDocumentPickerViewController.placard_init(forOpeningContentTypes:asCopy:))
-        )!
+        ) else { return }
         method_exchangeImplementations(originalMethod, copyMethod)
     }()
 }
@@ -77,9 +77,24 @@ private enum AppTab: Hashable {
 }
 
 struct WallpaperBrowserView: View {
-    private static let importablePackageTypes = ["tendies"].compactMap {
-        UTType(filenameExtension: $0, conformingTo: .data)
-    }
+    private static let importablePackageTypes: [UTType] = {
+        var types: [UTType] = []
+        if let tendies = UTType(filenameExtension: "tendies") {
+            types.append(tendies)
+        } else if let dynamicTendies = UTType(tag: "tendies", tagClass: .filenameExtension, conformingTo: .data) {
+            types.append(dynamicTendies)
+        }
+        if let tendiex = UTType(filenameExtension: "tendiex") {
+            types.append(tendiex)
+        } else if let dynamicTendiex = UTType(tag: "tendiex", tagClass: .filenameExtension, conformingTo: .data) {
+            types.append(dynamicTendiex)
+        }
+        // Always include .data and .item so unregistered custom package formats
+        // (.tendies, .tendiex) are never greyed out in the system document picker.
+        types.append(.data)
+        types.append(.item)
+        return types
+    }()
 
     private let catalog: WallpaperCatalog
 
@@ -105,6 +120,7 @@ struct WallpaperBrowserView: View {
         return ordered.filter {
             $0.name.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.authors?.localizedCaseInsensitiveContains(trimmedQuery) == true
+                || $0.description?.localizedCaseInsensitiveContains(trimmedQuery) == true
         }
     }
 
