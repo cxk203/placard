@@ -140,8 +140,7 @@ nonisolated enum WallpaperPackageValidator {
     nonisolated private static func validate(descriptor: URL, extensionID: String, fileManager: FileManager) throws {
         let role = descriptor.appending(path: "com.apple.posterkit.role.identifier")
         let identifier = descriptor.appending(path: "com.apple.posterkit.provider.descriptor.identifier")
-        let contents = descriptor.appending(path: "versions/1/contents", directoryHint: .isDirectory)
-        for url in [role, identifier, contents] where !fileManager.fileExists(atPath: url.path) {
+        for url in [role, identifier] where !fileManager.fileExists(atPath: url.path) {
             throw WallpaperPackageError.missingRequiredFile(url.lastPathComponent)
         }
 
@@ -152,11 +151,36 @@ nonisolated enum WallpaperPackageValidator {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard Int(identifierValue) != nil else { throw WallpaperPackageError.invalidPropertyList(identifier.lastPathComponent) }
 
+        guard let contents = resolveContentsDirectory(in: descriptor, fileManager: fileManager) else {
+            throw WallpaperPackageError.missingRequiredFile("contents")
+        }
+
         let plists = try wallpaperPlists(in: contents, fileManager: fileManager)
         if extensionID == "com.apple.WallpaperKit.CollectionsPoster", plists.isEmpty {
             throw WallpaperPackageError.missingRequiredFile("Wallpaper.plist")
         }
         for plist in plists { try validateWallpaperPlist(plist, fileManager: fileManager) }
+    }
+
+    nonisolated private static func resolveContentsDirectory(in descriptor: URL, fileManager: FileManager) -> URL? {
+        let versions = descriptor.appending(path: "versions", directoryHint: .isDirectory)
+        if let versionDirs = try? fileManager.contentsOfDirectory(
+            at: versions,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for v in versionDirs where (try? v.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                let candidate = v.appending(path: "contents", directoryHint: .isDirectory)
+                if fileManager.fileExists(atPath: candidate.path) {
+                    return candidate
+                }
+            }
+        }
+        let direct = descriptor.appending(path: "contents", directoryHint: .isDirectory)
+        if fileManager.fileExists(atPath: direct.path) {
+            return direct
+        }
+        return nil
     }
 
     nonisolated private static func wallpaperPlists(in contents: URL, fileManager: FileManager) throws -> [URL] {
