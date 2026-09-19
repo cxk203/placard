@@ -182,6 +182,8 @@ nonisolated struct WallpaperCatalog: Sendable {
     nonisolated static let spygRepoURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SpyGdev/3105-repo/refs/heads/main/repositories/purple/repo.json")!
     nonisolated static let denrindzRepoURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/tnt300709-debug/-my-3105-repo/main/repo.json")!
     nonisolated static let denrindzBaseString = "https://ghfast.top/https://raw.githubusercontent.com/tnt300709-debug/-my-3105-repo/main/"
+    nonisolated static let squairRepoURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/squairdev/squair.xyz/main/public/wallpapers.json")!
+    nonisolated static let squairBaseString = "https://ghfast.top/https://raw.githubusercontent.com/squairdev/squair.xyz/main/public"
 
     var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
@@ -240,23 +242,37 @@ nonisolated struct WallpaperCatalog: Sendable {
             var communityWallpapers: [Wallpaper] = []
 
             communityWallpapers += await optionalSource(
+                name: "Squair",
+                collection: collection,
+                url: squairRepoURL,
+                refresh: refresh
+            ) { (resp: SquairCatalogResponse) in
+                resp.wallpapers.map { $0.wallpaper() }
+            }
+            communityWallpapers += await optionalSource(
                 name: "LSNguyen",
                 collection: collection,
                 url: lsNguyenAssetBaseURL.appending(path: "repo.json"),
                 refresh: refresh
-            ) { $0.packages.compactMap { $0.wallpaper() } }
+            ) { (resp: LSNguyenRepoResponse) in
+                resp.packages.compactMap { $0.wallpaper() }
+            }
             communityWallpapers += await optionalSource(
                 name: "SpyG",
                 collection: collection,
                 url: spygRepoURL,
                 refresh: refresh
-            ) { $0.packages.compactMap { $0.wallpaper() } }
+            ) { (resp: LSNguyenRepoResponse) in
+                resp.packages.compactMap { $0.wallpaper() }
+            }
             communityWallpapers += await optionalSource(
                 name: "Denrindz",
                 collection: collection,
                 url: denrindzRepoURL,
                 refresh: refresh
-            ) { $0.packages.compactMap { $0.wallpaper(baseURL: denrindzBaseString) } }
+            ) { (resp: LSNguyenRepoResponse) in
+                resp.packages.compactMap { $0.wallpaper(baseURL: denrindzBaseString) }
+            }
 
             return communityWallpapers.deduplicated(excluding: excludeNames)
         }
@@ -309,12 +325,12 @@ nonisolated struct WallpaperCatalog: Sendable {
         }
     }
 
-    nonisolated private static func optionalSource(
+    nonisolated private static func optionalSource<T: Decodable & Sendable>(
         name: String,
         collection: WallpaperCollection,
         url: URL,
         refresh: Bool,
-        transform: @escaping @Sendable (LSNguyenRepoResponse) -> [Wallpaper]
+        transform: @escaping @Sendable (T) -> [Wallpaper]
     ) async -> [Wallpaper] {
         do {
             return transform(try await loadSource(name: name, collection: collection, url: url, refresh: refresh))
@@ -400,6 +416,45 @@ nonisolated private struct CAPlaygroundWallpaper: Decodable, Sendable {
             authors: creator,
             contest: nil,
             source: .caPlayground
+        )
+    }
+}
+
+nonisolated private struct SquairCatalogResponse: Decodable, Sendable {
+    let wallpapers: [SquairWallpaper]
+}
+
+nonisolated private struct SquairWallpaper: Decodable, Sendable {
+    let name: String
+    let path: String
+    let preview: String
+
+    nonisolated func wallpaper(baseURL: String = WallpaperCatalog.squairBaseString) -> Wallpaper {
+        let finalPath: String
+        if path.hasPrefix("http://") || path.hasPrefix("https://") {
+            finalPath = path
+        } else {
+            let subpath = path.hasPrefix("/") ? path : "/\(path)"
+            finalPath = "\(baseURL)\(subpath)"
+        }
+
+        let finalPreview: String
+        if preview.hasPrefix("http://") || preview.hasPrefix("https://") {
+            finalPreview = preview
+        } else {
+            let subpath = preview.hasPrefix("/") ? preview : "/\(preview)"
+            finalPreview = "\(baseURL)\(subpath)"
+        }
+
+        return Wallpaper(
+            remoteID: nil,
+            name: name,
+            description: "Squair Custom Wallpaper",
+            url: finalPath,
+            preview: finalPreview,
+            authors: "@squairdev",
+            contest: nil,
+            source: .lsNguyen
         )
     }
 }
