@@ -2,14 +2,14 @@ import CryptoKit
 import Foundation
 import ZIPFoundation
 
-enum WallpaperPackageError: LocalizedError, Equatable {
+nonisolated enum WallpaperPackageError: LocalizedError, Equatable, Sendable {
     case passwordProtected
     case missingRequiredFile(String)
     case invalidPropertyList(String)
     case missingReferencedResource(String)
     case checksumMismatch
 
-    var errorDescription: String? {
+    nonisolated var errorDescription: String? {
         switch self {
         case .passwordProtected:
             String(localized: "This wallpaper package is password-protected. Extract it without a password before importing.")
@@ -25,7 +25,7 @@ enum WallpaperPackageError: LocalizedError, Equatable {
     }
 }
 
-enum WallpaperPackageChecksum {
+nonisolated enum WallpaperPackageChecksum {
     nonisolated static func verify(fileURL: URL, expected: String?) throws {
         guard let normalized = normalized(expected) else { return }
         let handle = try FileHandle(forReadingFrom: fileURL)
@@ -48,8 +48,8 @@ enum WallpaperPackageChecksum {
     }
 }
 
-enum ZIPArchiveInspector {
-    private static let centralDirectorySignature: [UInt8] = [0x50, 0x4b, 0x01, 0x02]
+nonisolated enum ZIPArchiveInspector {
+    private nonisolated static let centralDirectorySignature: [UInt8] = [0x50, 0x4b, 0x01, 0x02]
 
     nonisolated static func isPasswordProtected(at url: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
@@ -70,7 +70,7 @@ enum ZIPArchiveInspector {
     }
 }
 
-enum WallpaperPackageValidator {
+nonisolated enum WallpaperPackageValidator {
     nonisolated static func extract(_ packageURL: URL, into workspace: URL, fileManager: FileManager = .default) throws -> URL {
         guard !ZIPArchiveInspector.isPasswordProtected(at: packageURL) else {
             throw WallpaperPackageError.passwordProtected

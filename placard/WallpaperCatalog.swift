@@ -84,7 +84,7 @@ nonisolated struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let sha256: String?
     let source: WallpaperSource
 
-    var id: String { "\(source.rawValue):\(url)" }
+    nonisolated var id: String { "\(source.rawValue):\(url)" }
     nonisolated var downloadURL: URL {
         if url.hasPrefix("http://") || url.hasPrefix("https://"), let u = URL(string: url) {
             return u
@@ -98,7 +98,7 @@ nonisolated struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         return source.assetBaseURL.appending(path: preview)
     }
 
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case remoteID = "id"
         case name, description, url, preview, authors, contest, sha256, source
     }
@@ -125,7 +125,7 @@ nonisolated struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         self.source = source
     }
 
-    init(from decoder: Decoder) throws {
+    nonisolated init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         remoteID = try container.decodeIfPresent(Int.self, forKey: .remoteID)
         name = try container.decode(String.self, forKey: .name)
@@ -162,7 +162,7 @@ nonisolated struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 }
 
 extension Array where Element == Wallpaper {
-    func deduplicated(excluding: Set<String> = []) -> [Wallpaper] {
+    nonisolated func deduplicated(excluding: Set<String> = []) -> [Wallpaper] {
         var seen = excluding
         return filter { wallpaper in
             let key = wallpaper.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -172,7 +172,7 @@ extension Array where Element == Wallpaper {
     }
 }
 
-struct WallpaperCatalog: Sendable {
+nonisolated struct WallpaperCatalog: Sendable {
     nonisolated static let nuggetAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
     nonisolated static let nuggetPackageBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
     nonisolated static let caPlaygroundAssetBaseURL = URL(string: "https://ghfast.top/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
@@ -185,7 +185,7 @@ struct WallpaperCatalog: Sendable {
 
     var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
-    static func sourceStatuses(for collection: WallpaperCollection) async -> [CatalogSourceStatus] {
+    nonisolated static func sourceStatuses(for collection: WallpaperCollection) async -> [CatalogSourceStatus] {
         await CatalogSourceHealthStore.shared.statuses(for: collection)
     }
 
@@ -262,7 +262,7 @@ struct WallpaperCatalog: Sendable {
         }
     }
 
-    static let preview = WallpaperCatalog { _, _ in
+    nonisolated static let preview = WallpaperCatalog { _, _ in
         let second = Wallpaper(
             remoteID: 2,
             name: "Rolling Hills",
@@ -276,11 +276,11 @@ struct WallpaperCatalog: Sendable {
         return [.previewFixture, second]
     }
 
-    static let failingPreview = WallpaperCatalog { _, _ in
+    nonisolated static let failingPreview = WallpaperCatalog { _, _ in
         throw CatalogError.invalidResponse
     }
 
-    private static func loadSource<T: Decodable & Sendable>(
+    nonisolated private static func loadSource<T: Decodable & Sendable>(
         name: String,
         collection: WallpaperCollection,
         url: URL,
@@ -309,7 +309,7 @@ struct WallpaperCatalog: Sendable {
         }
     }
 
-    private static func optionalSource(
+    nonisolated private static func optionalSource(
         name: String,
         collection: WallpaperCollection,
         url: URL,
@@ -339,7 +339,7 @@ nonisolated private struct LSNguyenPackage: Decodable, Sendable {
     let download: String?
     let sha256: String?
 
-    func wallpaper(baseURL: String? = nil) -> Wallpaper? {
+    nonisolated func wallpaper(baseURL: String? = nil) -> Wallpaper? {
         guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
               let download else { return nil }
         let finalDownload: String
@@ -499,8 +499,8 @@ actor RemoteAssetCache {
     }
 }
 
-enum CatalogError: LocalizedError {
+nonisolated enum CatalogError: LocalizedError, Sendable {
     case invalidResponse
 
-    var errorDescription: String? { String(localized: "Wallpapers are currently unavailable. Please try again later.") }
+    nonisolated var errorDescription: String? { String(localized: "Wallpapers are currently unavailable. Please try again later.") }
 }

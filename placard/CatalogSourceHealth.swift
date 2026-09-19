@@ -1,12 +1,12 @@
 import CryptoKit
 import Foundation
 
-enum CatalogSourceState: Equatable, Sendable {
+nonisolated enum CatalogSourceState: Equatable, Sendable {
     case available
     case stale
     case unavailable(String)
 
-    var message: String? {
+    nonisolated var message: String? {
         switch self {
         case .available: nil
         case .stale: String(localized: "Showing the last successful catalog because this source could not be refreshed.")
@@ -15,13 +15,13 @@ enum CatalogSourceState: Equatable, Sendable {
     }
 }
 
-struct CatalogSourceStatus: Identifiable, Equatable, Sendable {
+nonisolated struct CatalogSourceStatus: Identifiable, Equatable, Sendable {
     let collection: WallpaperCollection
     let name: String
     let state: CatalogSourceState
 
-    var id: String { "\(collection.rawValue)-\(name)" }
-    var needsAttention: Bool {
+    nonisolated var id: String { "\(collection.rawValue)-\(name)" }
+    nonisolated var needsAttention: Bool {
         switch state {
         case .available: false
         case .stale, .unavailable: true

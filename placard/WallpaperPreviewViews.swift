@@ -176,7 +176,7 @@ struct RemoteWallpaperPreview: View {
     }
 }
 
-enum PreviewPlayback: Sendable {
+nonisolated enum PreviewPlayback: Sendable {
     /// Cheap, downsampled stills for scrolling collections.
     case thumbnail
     /// Full animation is reserved for the single image shown in the detail view.
@@ -210,7 +210,7 @@ private struct AnimatedImageView: UIViewRepresentable {
     }
 }
 
-enum AnimatedImageLoader {
+nonisolated enum AnimatedImageLoader {
     nonisolated private static let cache = ImageCache()
     nonisolated private static let maximumPreviewDataBytes = 20 * 1_024 * 1_024
     nonisolated private static let maximumAnimatedFrames = 60
