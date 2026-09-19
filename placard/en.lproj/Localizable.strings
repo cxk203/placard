@@ -113,3 +113,10 @@
 "%@'s system wallpaper snapshot" = "%@'s system wallpaper snapshot";
 "Try Again" = "Try Again";
 "Installed" = "Installed";
+"This wallpaper package is password-protected. Extract it without a password before importing." = "This wallpaper package is password-protected. Extract it without a password before importing.";
+"The wallpaper package is missing a required file: %@" = "The wallpaper package is missing a required file: %@";
+"The wallpaper package contains an invalid property list: %@" = "The wallpaper package contains an invalid property list: %@";
+"The wallpaper package references a missing resource: %@" = "The wallpaper package references a missing resource: %@";
+"The downloaded wallpaper does not match its published SHA-256 checksum." = "The downloaded wallpaper does not match its published SHA-256 checksum.";
+"Showing the last successful catalog because this source could not be refreshed." = "Showing the last successful catalog because this source could not be refreshed.";
+"Unavailable" = "Unavailable";

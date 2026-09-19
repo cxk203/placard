@@ -113,3 +113,10 @@
 "%@'s system wallpaper snapshot" = "%@ 的系统壁纸快照";
 "Try Again" = "重试";
 "Installed" = "已安装";
+"This wallpaper package is password-protected. Extract it without a password before importing." = "此壁纸包受密码保护。请先解压为无密码压缩包再导入。";
+"The wallpaper package is missing a required file: %@" = "壁纸包缺少必要文件：%@";
+"The wallpaper package contains an invalid property list: %@" = "壁纸包包含无效的属性列表：%@";
+"The wallpaper package references a missing resource: %@" = "壁纸包引用了缺失资源：%@";
+"The downloaded wallpaper does not match its published SHA-256 checksum." = "下载的壁纸与发布的 SHA-256 校验值不一致。";
+"Showing the last successful catalog because this source could not be refreshed." = "此来源刷新失败，正在显示上一次成功加载的目录。";
+"Unavailable" = "不可用";

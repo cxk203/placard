@@ -212,6 +212,10 @@ private struct AnimatedImageView: UIViewRepresentable {
 
 enum AnimatedImageLoader {
     nonisolated private static let cache = ImageCache()
+    nonisolated private static let maximumPreviewDataBytes = 20 * 1_024 * 1_024
+    nonisolated private static let maximumAnimatedFrames = 60
+    nonisolated private static let thumbnailPixelSize = 600
+    nonisolated private static let animatedPixelSize = 1_000
 
     nonisolated static func cached(_ url: URL, playback: PreviewPlayback) -> UIImage? {
         cache.image(for: cacheKey(for: url, playback: playback))
@@ -221,12 +225,13 @@ enum AnimatedImageLoader {
         if let cached = cached(url, playback: playback) { return cached }
         do {
             let data = try await RemoteAssetCache.shared.data(for: url)
+            guard data.count <= maximumPreviewDataBytes else { return nil }
             guard !Task.isCancelled else { return nil }
             let image = await Task.detached(priority: .utility) {
                 decode(data, playback: playback)
             }.value
             guard let image, !Task.isCancelled else { return nil }
-            cache.insert(image, for: cacheKey(for: url, playback: playback))
+            cache.insert(image, for: cacheKey(for: url, playback: playback), cost: imageCost(image))
             return image
         } catch {
             return nil
@@ -257,34 +262,50 @@ enum AnimatedImageLoader {
         }
         let count = CGImageSourceGetCount(source)
         guard isAnimated(playback), count > 1 else {
-            return thumbnail(source: source)
+            return thumbnail(source: source, maxPixelSize: thumbnailPixelSize)
         }
 
         var frames: [UIImage] = []
         var duration = 0.0
-        for index in 0..<count {
-            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, index, thumbnailOptions) else { continue }
+        let stride = max(1, Int(ceil(Double(count) / Double(maximumAnimatedFrames))))
+        for index in stride(from: 0, to: count, by: stride) {
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+                source,
+                index,
+                thumbnailOptions(maxPixelSize: animatedPixelSize)
+            ) else { continue }
             duration += frameDelay(source: source, index: index)
             frames.append(UIImage(cgImage: cgImage))
         }
-        guard frames.count > 1 else { return thumbnail(source: source) }
+        guard frames.count > 1 else { return thumbnail(source: source, maxPixelSize: thumbnailPixelSize) }
         if duration <= 0 { duration = Double(frames.count) / 30.0 }
         return UIImage.animatedImage(with: frames, duration: duration)
     }
 
-    nonisolated private static var thumbnailOptions: CFDictionary {
+    nonisolated private static func thumbnailOptions(maxPixelSize: Int) -> CFDictionary {
         [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1_200
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
         ] as CFDictionary
     }
 
-    nonisolated private static func thumbnail(source: CGImageSource) -> UIImage? {
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
+    nonisolated private static func thumbnail(source: CGImageSource, maxPixelSize: Int) -> UIImage? {
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+            source,
+            0,
+            thumbnailOptions(maxPixelSize: maxPixelSize)
+        ) else {
             return nil
         }
         return UIImage(cgImage: cgImage)
+    }
+
+    nonisolated private static func imageCost(_ image: UIImage) -> Int {
+        let width = Int(image.size.width * image.scale)
+        let height = Int(image.size.height * image.scale)
+        let frames = max(1, image.images?.count ?? 1)
+        return max(1, width * height * 4 * frames)
     }
 
     nonisolated private static func frameDelay(source: CGImageSource, index: Int) -> Double {
@@ -306,14 +327,15 @@ nonisolated private final class ImageCache: @unchecked Sendable {
     private let values = NSCache<NSString, UIImage>()
 
     init() {
-        values.countLimit = 300
+        values.countLimit = 120
+        values.totalCostLimit = 96 * 1_024 * 1_024
     }
 
     func image(for key: NSString) -> UIImage? {
         values.object(forKey: key)
     }
 
-    func insert(_ image: UIImage, for key: NSString) {
-        values.setObject(image, forKey: key)
+    func insert(_ image: UIImage, for key: NSString, cost: Int) {
+        values.setObject(image, forKey: key, cost: cost)
     }
 }

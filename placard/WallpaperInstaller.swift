@@ -218,7 +218,7 @@ private actor WallpaperInstaller {
         defer { try? fileManager.removeItem(at: workspace) }
 
         await progress(.downloading(0))
-        let packageURL = try await download(wallpaper.downloadURL, into: workspace) { fraction in
+        let packageURL = try await download(wallpaper, into: workspace) { fraction in
             Task { @MainActor in
                 progress(.downloading(fraction))
             }
@@ -227,8 +227,7 @@ private actor WallpaperInstaller {
 
         await progress(.unpacking)
         let extractedURL = try extract(packageURL, into: workspace)
-        let descriptorGroups = try findDescriptorGroups(in: extractedURL)
-        guard !descriptorGroups.isEmpty else { throw InstallError.noDescriptors }
+        let descriptorGroups = try WallpaperPackageValidator.descriptorGroups(in: extractedURL)
         for descriptors in descriptorGroups.values.flatMap({ $0 })
             where shouldRandomizeIdentifier(in: descriptors) {
             try randomizeIdentifier(in: descriptors)
@@ -241,6 +240,10 @@ private actor WallpaperInstaller {
 
         await progress(.writing)
         var writtenPaths: [String] = []
+        var completed = false
+        defer {
+            if !completed { try? BadQuery.removeDescriptors(at: writtenPaths) }
+        }
         for (extensionID, descriptors) in descriptorGroups {
             writtenPaths += try BadQuery.writeDescriptors(
                 appHash: appHash,
@@ -249,6 +252,7 @@ private actor WallpaperInstaller {
             )
         }
         InstalledWallpaperNameStore.record(name: wallpaper.name, paths: writtenPaths)
+        completed = true
         #endif
     }
 
@@ -274,8 +278,7 @@ private actor WallpaperInstaller {
 
         await progress(.unpacking)
         let extractedURL = try extract(packageURL, into: workspace)
-        let descriptorGroups = try findDescriptorGroups(in: extractedURL)
-        guard !descriptorGroups.isEmpty else { throw InstallError.noDescriptors }
+        let descriptorGroups = try WallpaperPackageValidator.descriptorGroups(in: extractedURL)
         for descriptors in descriptorGroups.values.flatMap({ $0 })
             where shouldRandomizeIdentifier(in: descriptors) {
             try randomizeIdentifier(in: descriptors)
@@ -288,6 +291,10 @@ private actor WallpaperInstaller {
 
         await progress(.writing)
         var writtenPaths: [String] = []
+        var completed = false
+        defer {
+            if !completed { try? BadQuery.removeDescriptors(at: writtenPaths) }
+        }
         for (extensionID, descriptors) in descriptorGroups {
             writtenPaths += try BadQuery.writeDescriptors(
                 appHash: appHash,
@@ -299,6 +306,7 @@ private actor WallpaperInstaller {
             name: sourceURL.deletingPathExtension().lastPathComponent,
             paths: writtenPaths
         )
+        completed = true
         #endif
     }
 
@@ -317,10 +325,11 @@ private actor WallpaperInstaller {
     }
 
     private func download(
-        _ remoteURL: URL,
+        _ wallpaper: Wallpaper,
         into workspace: URL,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> URL {
+        let remoteURL = wallpaper.downloadURL
         var request = URLRequest(url: remoteURL)
         request.timeoutInterval = 90
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -345,10 +354,14 @@ private actor WallpaperInstaller {
         guard fileSize > 0, Int64(fileSize) <= maximumPackageBytes else {
             throw InstallError.packageTooLarge
         }
+        try WallpaperPackageChecksum.verify(fileURL: destination, expected: wallpaper.sha256)
         return destination
     }
 
     private func extract(_ packageURL: URL, into workspace: URL) throws -> URL {
+        guard !ZIPArchiveInspector.isPasswordProtected(at: packageURL) else {
+            throw WallpaperPackageError.passwordProtected
+        }
         let archive: Archive
         do {
             archive = try Archive(url: packageURL, accessMode: .read)
@@ -370,56 +383,7 @@ private actor WallpaperInstaller {
             }
         }
 
-        let destination = workspace.appending(path: "Extracted", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
-        try fileManager.unzipItem(at: packageURL, to: destination)
-        return destination
-    }
-
-    private func findDescriptorGroups(in root: URL) throws -> [String: [URL]] {
-        let resourceKeys: [URLResourceKey] = [.isDirectoryKey, .isHiddenKey]
-        guard let enumerator = fileManager.enumerator(
-            at: root,
-            includingPropertiesForKeys: resourceKeys,
-            options: [.skipsHiddenFiles]
-        ) else { throw InstallError.invalidPackage }
-
-        var groups: [String: [URL]] = [:]
-        for case let directory as URL in enumerator {
-            let values = try directory.resourceValues(forKeys: Set(resourceKeys))
-            guard values.isDirectory == true else { continue }
-            if directory.lastPathComponent == "__MACOSX" {
-                enumerator.skipDescendants()
-                continue
-            }
-            let name = directory.lastPathComponent.lowercased()
-            let extensionID: String?
-
-            if name == "descriptors",
-               let extensionsIndex = directory.pathComponents.lastIndex(of: "Extensions"),
-               directory.pathComponents.indices.contains(extensionsIndex + 1) {
-                extensionID = directory.pathComponents[extensionsIndex + 1]
-            } else if ["descriptor", "descriptors", "ordered-descriptor", "ordered-descriptors"].contains(name) {
-                extensionID = "com.apple.WallpaperKit.CollectionsPoster"
-            } else if ["video-descriptor", "video-descriptors"].contains(name) {
-                extensionID = "com.apple.PhotosUIPrivate.PhotosPosterProvider"
-            } else {
-                extensionID = nil
-            }
-
-            guard let extensionID else { continue }
-            let children = try fileManager.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: [.isDirectoryKey, .isHiddenKey],
-                options: [.skipsHiddenFiles]
-            ).filter {
-                (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-                    && $0.lastPathComponent != "__MACOSX"
-            }
-            if !children.isEmpty { groups[extensionID, default: []].append(contentsOf: children) }
-            enumerator.skipDescendants()
-        }
-        return groups
+        return try WallpaperPackageValidator.extract(packageURL, into: workspace, fileManager: fileManager)
     }
 
     private func randomizeIdentifier(in descriptor: URL) throws {

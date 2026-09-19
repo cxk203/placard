@@ -89,6 +89,7 @@ struct WallpaperBrowserView: View {
     @State private var sortOrder: WallpaperSortOrder = .random
     @State private var ordered: [Wallpaper] = []
     @State private var loadedCollection: WallpaperCollection?
+    @State private var sourceStatuses: [CatalogSourceStatus] = []
     @State private var isImportingPackage = false
     @State private var importCoordinator = InstallCoordinator()
 
@@ -127,13 +128,16 @@ struct WallpaperBrowserView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                switch loadState {
-                case .idle, .loading:
-                    WallpaperLoadingGrid()
-                case .loaded where !displayedWallpapers.isEmpty:
-                    WallpaperGrid(wallpapers: displayedWallpapers)
-                default:
-                    EmptyView()
+                VStack(spacing: 12) {
+                    sourceHealthNotice
+                    switch loadState {
+                    case .idle, .loading:
+                        WallpaperLoadingGrid()
+                    case .loaded where !displayedWallpapers.isEmpty:
+                        WallpaperGrid(wallpapers: displayedWallpapers)
+                    default:
+                        EmptyView()
+                    }
                 }
             }
             .overlay { unavailableOverlay }
@@ -263,6 +267,7 @@ struct WallpaperBrowserView: View {
         do {
             let wallpapers = try await catalog.fetch(targetCollection, policy)
             guard targetCollection == collection else { return }
+            sourceStatuses = await WallpaperCatalog.sourceStatuses(for: targetCollection)
             loadState = .loaded(wallpapers)
             loadedCollection = targetCollection
             applyOrder()
@@ -271,10 +276,29 @@ struct WallpaperBrowserView: View {
         } catch let error as URLError where error.code == .cancelled {
             return
         } catch {
+            sourceStatuses = await WallpaperCatalog.sourceStatuses(for: targetCollection)
             // Only surface a hard failure when there's nothing already shown;
             // a failed refresh should quietly keep the existing wallpapers.
             if case .loaded = loadState { return }
             loadState = .failed(error.localizedDescription)
+        }
+    }
+
+    @ViewBuilder
+    private var sourceHealthNotice: some View {
+        let problems = sourceStatuses.filter(\.needsAttention)
+        if !problems.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(problems) { status in
+                    Text("\(status.name): \(status.state.message ?? String(localized: "Unavailable"))")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.orange.opacity(0.12), in: .rect(cornerRadius: 12))
+            .padding(.horizontal, 16)
         }
     }
 

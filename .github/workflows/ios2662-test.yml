@@ -38,6 +38,15 @@ jobs:
           SWIFT
           xcrun swiftc placard/SystemCompatibility.swift "$RUNNER_TEMP/CompatibilityTests.swift" -o "$RUNNER_TEMP/compatibility-tests"
           "$RUNNER_TEMP/compatibility-tests"
+      - name: Run package and catalog unit tests
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')
+          test -n "$DEVICE_ID"
+          xcodebuild test \
+            -project placard.xcodeproj \
+            -scheme placard \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID"
       - name: Build unsigned archive
         run: |
           set -o pipefail

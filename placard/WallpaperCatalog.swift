@@ -81,6 +81,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let preview: String
     let authors: String?
     let contest: String?
+    let sha256: String?
     let source: WallpaperSource
 
     var id: String { "\(source.rawValue):\(url)" }
@@ -99,7 +100,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case remoteID = "id"
-        case name, description, url, preview, authors, contest, source
+        case name, description, url, preview, authors, contest, sha256, source
     }
 
     nonisolated init(
@@ -110,6 +111,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         preview: String,
         authors: String?,
         contest: String?,
+        sha256: String? = nil,
         source: WallpaperSource
     ) {
         self.remoteID = remoteID
@@ -119,6 +121,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         self.preview = preview
         self.authors = authors
         self.contest = contest
+        self.sha256 = sha256
         self.source = source
     }
 
@@ -131,6 +134,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         preview = try container.decode(String.self, forKey: .preview)
         authors = try container.decodeIfPresent(String.self, forKey: .authors)
         contest = try container.decodeIfPresent(String.self, forKey: .contest)
+        sha256 = try container.decodeIfPresent(String.self, forKey: .sha256)
         source = try container.decodeIfPresent(WallpaperSource.self, forKey: .source) ?? .nugget
     }
 
@@ -181,30 +185,37 @@ struct WallpaperCatalog: Sendable {
 
     var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
+    static func sourceStatuses(for collection: WallpaperCollection) async -> [CatalogSourceStatus] {
+        await CatalogSourceHealthStore.shared.statuses(for: collection)
+    }
+
     static let live = WallpaperCatalog { collection, policy in
         let refresh = policy == .refresh
         switch collection {
         case .nugget:
-            let data = try await RemoteAssetCache.shared.data(
-                for: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"),
+            let wallpapers: [Wallpaper] = try await loadSource(
+                name: "Nugget",
+                collection: collection,
+                url: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"),
                 refresh: refresh
             )
-            let wallpapers = try JSONDecoder().decode([Wallpaper].self, from: data)
             return wallpapers.deduplicated()
 
         case .apple:
-            let data = try await RemoteAssetCache.shared.data(
-                for: nuggetAssetBaseURL.appending(path: "wallpapers-apple.json"),
+            return try await loadSource(
+                name: "Apple",
+                collection: collection,
+                url: nuggetAssetBaseURL.appending(path: "wallpapers-apple.json"),
                 refresh: refresh
             )
-            return try JSONDecoder().decode([Wallpaper].self, from: data)
 
         case .caPlayground:
-            let data = try await RemoteAssetCache.shared.data(
-                for: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"),
+            let response: CAPlaygroundCatalogResponse = try await loadSource(
+                name: "CAPlayground",
+                collection: collection,
+                url: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"),
                 refresh: refresh
             )
-            let response = try JSONDecoder().decode(CAPlaygroundCatalogResponse.self, from: data)
             return response.wallpapers
                 .sorted { $0.date < $1.date }
                 .map(\.wallpaper)
@@ -228,23 +239,24 @@ struct WallpaperCatalog: Sendable {
 
             var communityWallpapers: [Wallpaper] = []
 
-            // 1. LSNguyen repo
-            if let data = try? await RemoteAssetCache.shared.data(for: lsNguyenAssetBaseURL.appending(path: "repo.json"), refresh: refresh),
-               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
-                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper() })
-            }
-
-            // 2. SpyG repo (Foreign creator exclusive wallpapers)
-            if let data = try? await RemoteAssetCache.shared.data(for: spygRepoURL, refresh: refresh),
-               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
-                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper() })
-            }
-
-            // 3. Denrindz repo (Community popular wallpapers)
-            if let data = try? await RemoteAssetCache.shared.data(for: denrindzRepoURL, refresh: refresh),
-               let resp = try? JSONDecoder().decode(LSNguyenRepoResponse.self, from: data) {
-                communityWallpapers.append(contentsOf: resp.packages.compactMap { $0.wallpaper(baseURL: denrindzBaseString) })
-            }
+            communityWallpapers += await optionalSource(
+                name: "LSNguyen",
+                collection: collection,
+                url: lsNguyenAssetBaseURL.appending(path: "repo.json"),
+                refresh: refresh
+            ) { $0.packages.compactMap { $0.wallpaper() } }
+            communityWallpapers += await optionalSource(
+                name: "SpyG",
+                collection: collection,
+                url: spygRepoURL,
+                refresh: refresh
+            ) { $0.packages.compactMap { $0.wallpaper() } }
+            communityWallpapers += await optionalSource(
+                name: "Denrindz",
+                collection: collection,
+                url: denrindzRepoURL,
+                refresh: refresh
+            ) { $0.packages.compactMap { $0.wallpaper(baseURL: denrindzBaseString) } }
 
             return communityWallpapers.deduplicated(excluding: excludeNames)
         }
@@ -267,13 +279,56 @@ struct WallpaperCatalog: Sendable {
     static let failingPreview = WallpaperCatalog { _, _ in
         throw CatalogError.invalidResponse
     }
+
+    private static func loadSource<T: Decodable & Sendable>(
+        name: String,
+        collection: WallpaperCollection,
+        url: URL,
+        refresh: Bool
+    ) async throws -> T {
+        do {
+            let data = try await RemoteAssetCache.shared.data(for: url, refresh: refresh)
+            let value = try JSONDecoder().decode(T.self, from: data)
+            try? await CatalogSourceSnapshotStore.shared.save(data, for: url)
+            await CatalogSourceHealthStore.shared.set(
+                CatalogSourceStatus(collection: collection, name: name, state: .available)
+            )
+            return value
+        } catch {
+            if let cached = await CatalogSourceSnapshotStore.shared.load(for: url),
+               let value = try? JSONDecoder().decode(T.self, from: cached) {
+                await CatalogSourceHealthStore.shared.set(
+                    CatalogSourceStatus(collection: collection, name: name, state: .stale)
+                )
+                return value
+            }
+            await CatalogSourceHealthStore.shared.set(
+                CatalogSourceStatus(collection: collection, name: name, state: .unavailable(error.localizedDescription))
+            )
+            throw error
+        }
+    }
+
+    private static func optionalSource(
+        name: String,
+        collection: WallpaperCollection,
+        url: URL,
+        refresh: Bool,
+        transform: @escaping @Sendable (LSNguyenRepoResponse) -> [Wallpaper]
+    ) async -> [Wallpaper] {
+        do {
+            return transform(try await loadSource(name: name, collection: collection, url: url, refresh: refresh))
+        } catch {
+            return []
+        }
+    }
 }
 
-private struct LSNguyenRepoResponse: Decodable {
+private struct LSNguyenRepoResponse: Decodable, Sendable {
     let packages: [LSNguyenPackage]
 }
 
-private struct LSNguyenPackage: Decodable {
+private struct LSNguyenPackage: Decodable, Sendable {
     let identifier: String?
     let kind: String?
     let name: String
@@ -282,6 +337,7 @@ private struct LSNguyenPackage: Decodable {
     let description: String?
     let icon: String?
     let download: String?
+    let sha256: String?
 
     func wallpaper(baseURL: String? = nil) -> Wallpaper? {
         guard kind == "wallpaper" || (download?.hasSuffix(".tendies") == true),
@@ -316,16 +372,17 @@ private struct LSNguyenPackage: Decodable {
             preview: finalIcon,
             authors: author,
             contest: nil,
+            sha256: sha256,
             source: .lsNguyen
         )
     }
 }
 
-private struct CAPlaygroundCatalogResponse: Decodable {
+private struct CAPlaygroundCatalogResponse: Decodable, Sendable {
     let wallpapers: [CAPlaygroundWallpaper]
 }
 
-private struct CAPlaygroundWallpaper: Decodable {
+private struct CAPlaygroundWallpaper: Decodable, Sendable {
     let name: String
     let creator: String?
     let description: String?

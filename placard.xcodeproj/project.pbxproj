@@ -9,10 +9,23 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000003 /* ZIPFoundation */; };
 		D1664C2D303161240037E861 /* Appicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D1664C2C303161240037E861 /* Appicon.icon */; };
+		000000000000000000000231 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000000000000000000000132 /* XCTest.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		000000000000000000000250 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = placard;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* placard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = placard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000130 /* placardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = placardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000132 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		D1664C2C303161240037E861 /* Appicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Appicon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -20,6 +33,11 @@
 		000000000000000000000010 /* placard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = placard;
+			sourceTree = "<group>";
+		};
+		000000000000000000000030 /* placardTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = placardTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +49,12 @@
 				A10000000000000000000001 /* ZIPFoundation in Frameworks */,
 			);
 		};
+		000000000000000230000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				000000000000000000000231 /* XCTest.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -39,7 +63,9 @@
 			children = (
 				D1664C2C303161240037E861 /* Appicon.icon */,
 				000000000000000000000010 /* placard */,
+				000000000000000000000030 /* placardTests */,
 				000000000000000000000020 /* Products */,
+				000000000000000000000040 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -47,8 +73,17 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* placard.app */,
+				000000000000000000000130 /* placardTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		000000000000000000000040 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000132 /* XCTest.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -75,6 +110,27 @@
 			productReference = 000000000000000000000120 /* placard.app */;
 			productType = "com.apple.product-type.application";
 		};
+		000000000000000200000000 /* placardTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000210000000 /* Build configuration list for PBXNativeTarget "placardTests" */;
+			buildPhases = (
+				000000000000000220000000 /* Sources */,
+				000000000000000230000000 /* Frameworks */,
+				000000000000000240000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				000000000000000000000251 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				000000000000000000000030 /* placardTests */,
+			);
+			name = placardTests;
+			productName = placardTests;
+			productReference = 000000000000000000000130 /* placardTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -85,9 +141,13 @@
 				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
-					000000000000000100000000 = {
-						CreatedOnToolsVersion = 26.3;
-					};
+				000000000000000100000000 = {
+					CreatedOnToolsVersion = 26.3;
+				};
+				000000000000000200000000 = {
+					CreatedOnToolsVersion = 26.3;
+					TestTargetID = 000000000000000100000000;
+				};
 				};
 			};
 			buildConfigurationList = 000000000000000010000000 /* Build configuration list for PBXProject "placard" */;
@@ -109,9 +169,18 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* placard */,
+				000000000000000200000000 /* placardTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXTargetDependency section */
+		000000000000000000000251 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* placard */;
+			targetProxy = 000000000000000000000250 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
@@ -120,10 +189,20 @@
 				D1664C2D303161240037E861 /* Appicon.icon in Resources */,
 			);
 		};
+		000000000000000240000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		000000000000000120000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		000000000000000220000000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -351,6 +430,38 @@
 			};
 			name = Release;
 		};
+		000000000000000211000000 /* Debug configuration for PBXNativeTarget "placardTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "me.ssus.placardTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/placard.app/placard";
+				TEST_TARGET_NAME = placard;
+			};
+			name = Debug;
+		};
+		000000000000000212000000 /* Release configuration for PBXNativeTarget "placardTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "me.ssus.placardTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/placard.app/placard";
+				TEST_TARGET_NAME = placard;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -367,6 +478,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "placard" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "placard" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		000000000000000210000000 /* Build configuration list for PBXNativeTarget "placardTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000211000000 /* Debug configuration for PBXNativeTarget "placardTests" */,
+				000000000000000212000000 /* Release configuration for PBXNativeTarget "placardTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
