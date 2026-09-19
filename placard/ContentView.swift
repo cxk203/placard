@@ -92,6 +92,7 @@ struct WallpaperBrowserView: View {
     @State private var sourceStatuses: [CatalogSourceStatus] = []
     @State private var isImportingPackage = false
     @State private var importCoordinator = InstallCoordinator()
+    @FocusState private var isSearchFocused: Bool
 
     init(catalog: WallpaperCatalog = .live) {
         self.catalog = catalog
@@ -140,6 +141,10 @@ struct WallpaperBrowserView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) {
+                bottomSearchBar
+            }
             .overlay { unavailableOverlay }
             .navigationTitle(collection.title)
             .toolbar {
@@ -174,7 +179,6 @@ struct WallpaperBrowserView: View {
                 }
             }
             .onChange(of: sortOrder) { _, _ in applyOrder() }
-            .searchable(text: $query, prompt: "Search")
             .refreshable { await refresh() }
             .task(id: collection) { await loadIfNeeded(collection) }
             .fileImporter(
@@ -224,6 +228,54 @@ struct WallpaperBrowserView: View {
                 }
             }
         }
+    }
+
+    private var bottomSearchBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                TextField("Search", text: $query)
+                    .font(.subheadline)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+                    .autocorrectionDisabled()
+
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(.regularMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .strokeBorder(.separator.opacity(0.35), lineWidth: 0.5)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 2)
+
+            if isSearchFocused {
+                Button("Cancel") {
+                    query = ""
+                    isSearchFocused = false
+                }
+                .font(.subheadline)
+                .foregroundStyle(.tint)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: isSearchFocused)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     private func applyOrder() {
